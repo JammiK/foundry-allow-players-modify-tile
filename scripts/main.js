@@ -170,15 +170,37 @@ function patchTileDocumentPermissions() {
 
 function patchTileLayerCapabilities() {
   const TileLayerClass =
+    foundry?.canvas?.layers?.TilesLayer ??
     globalThis.TilesLayer ??
     globalThis.TileLayer ??
     CONFIG?.Canvas?.layers?.tiles?.layerClass ??
     canvas?.tiles?.constructor;
-  if (!TileLayerClass?.prototype) return;
+  if (!TileLayerClass) return;
 
   const allow = () => settingEnabled() && !game.user.isGM;
 
   const orAllow = (value) => (value === true ? true : allow());
+
+  // Patch static prepareSceneControls to make tiles visible for players
+  if (TileLayerClass.prepareSceneControls && !TileLayerClass.prepareSceneControls[PATCHED]) {
+    const originalPrepare = TileLayerClass.prepareSceneControls.bind(TileLayerClass);
+    TileLayerClass.prepareSceneControls = function () {
+      const result = originalPrepare();
+      if (allow() && result) {
+        result.visible = true;
+        // Make all tools visible
+        if (result.tools && typeof result.tools === "object") {
+          for (const toolName of Object.keys(result.tools)) {
+            result.tools[toolName].visible = true;
+          }
+        }
+      }
+      return result;
+    };
+    TileLayerClass.prepareSceneControls[PATCHED] = true;
+  }
+
+  if (!TileLayerClass.prototype) return;
 
   wrapGetter(TileLayerClass.prototype, "canDragCreate", (originalGet) => {
     return function () {
@@ -229,10 +251,14 @@ function applyTileLayerOptions() {
 
 function refreshSceneControls() {
   try {
-    ui.controls?.initialize?.();
-    ui.controls?.render?.(true);
-  } catch (_) {
-    // ignore
+    // v13 uses SceneControls which is an ApplicationV2
+    // render(true) forces a re-render
+    if (ui.controls) {
+      // For v13, just re-render the controls
+      ui.controls.render(true);
+    }
+  } catch (err) {
+    console.debug(`${MODULE_ID}: Failed to refresh scene controls`, err);
   }
 }
 
@@ -286,57 +312,106 @@ function patchSceneEmbeddedTileOperations() {
 }
 
 function patchSceneControlsVisibility() {
-  const defaultTools = () => ([
-    {
+  // Default tools as Record<string, SceneControlTool> for v13
+  const defaultTools = () => ({
+    select: {
       name: "select",
       title: "CONTROLS.CommonSelect",
-      icon: "fas fa-expand",
-      toggle: true,
-      active: true,
+      icon: "fa-solid fa-expand",
+      order: 0,
       visible: true,
     },
-    {
+    tile: {
       name: "tile",
       title: "CONTROLS.TileDraw",
-      icon: "fas fa-cube",
-      toggle: true,
+      icon: "fa-solid fa-cube",
+      order: 1,
       visible: true,
     },
-  ]);
+    browse: {
+      name: "browse",
+      title: "CONTROLS.TileBrowser",
+      icon: "fa-solid fa-folder-open",
+      order: 2,
+      button: true,
+      visible: true,
+      onChange: () => {
+        new FilePicker({
+          type: "imagevideo",
+          displayMode: "tiles",
+          tileSize: false,
+        }).render(true);
+      },
+    },
+  });
 
+  // In v13, controls is a Record<string, SceneControl>, not an array
   Hooks.on("getSceneControlButtons", (controls) => {
     if (!settingEnabled() || game.user.isGM) return;
 
-    let tiles = controls.find((c) => c.name === "tiles" || c.layer === "tiles");
+    // Check if controls is an object (v13) or array (older versions)
+    const isV13 = !Array.isArray(controls);
 
-    if (!tiles) {
-      tiles = {
-        name: "tiles",
-        title: "CONTROLS.TileLayer",
-        icon: "fas fa-cubes",
-        layer: "tiles",
-        visible: true,
-        tools: defaultTools(),
-        activeTool: "select",
-      };
+    if (isV13) {
+      // v13: controls is Record<string, SceneControl>
+      let tiles = controls.tiles;
 
-      controls.push(tiles);
-    }
+      if (!tiles) {
+        // Create the tiles control if it doesn't exist
+        controls.tiles = {
+          name: "tiles",
+          title: "CONTROLS.GroupTile",
+          icon: "fa-solid fa-cubes",
+          order: 300,
+          visible: true,
+          activeTool: "select",
+          tools: defaultTools(),
+        };
+        tiles = controls.tiles;
+      } else {
+        // Make existing tiles control visible
+        tiles.visible = true;
+      }
 
-    if (!Array.isArray(tiles.tools) || tiles.tools.length === 0) {
-      tiles.tools = defaultTools();
-    }
+      // Ensure tools exist and are visible
+      if (!tiles.tools || Object.keys(tiles.tools).length === 0) {
+        tiles.tools = defaultTools();
+      } else {
+        // Make all existing tools visible
+        for (const toolName of Object.keys(tiles.tools)) {
+          tiles.tools[toolName].visible = true;
+        }
+      }
 
-    tiles.visible = true;
-    tiles.activeTool = tiles.activeTool ?? "select";
-    if ("permission" in tiles) delete tiles.permission;
-    if ("restricted" in tiles) delete tiles.restricted;
-    if ("gmOnly" in tiles) delete tiles.gmOnly;
-    for (const tool of tiles.tools ?? []) {
-      tool.visible = true;
-      if ("permission" in tool) delete tool.permission;
-      if ("restricted" in tool) delete tool.restricted;
-      if ("gmOnly" in tool) delete tool.gmOnly;
+      // Ensure activeTool is set
+      if (!tiles.activeTool) {
+        tiles.activeTool = "select";
+      }
+    } else {
+      // Fallback for older versions (array-based)
+      let tiles = controls.find((c) => c.name === "tiles");
+
+      if (!tiles) {
+        tiles = {
+          name: "tiles",
+          title: "CONTROLS.GroupTile",
+          icon: "fa-solid fa-cubes",
+          layer: "tiles",
+          visible: true,
+          activeTool: "select",
+          tools: Object.values(defaultTools()),
+        };
+        controls.push(tiles);
+      } else {
+        tiles.visible = true;
+      }
+
+      // Make tools visible
+      if (Array.isArray(tiles.tools)) {
+        for (const tool of tiles.tools) {
+          tool.visible = true;
+        }
+      }
     }
   });
 }
@@ -357,9 +432,13 @@ Hooks.once("init", () => {
   });
 
   patchTileDocumentPermissions();
-  patchTileLayerCapabilities();
   patchSceneEmbeddedTileOperations();
   patchSceneControlsVisibility();
+});
+
+// Patch TilesLayer after setup when CONFIG is fully populated
+Hooks.once("setup", () => {
+  patchTileLayerCapabilities();
 });
 
 Hooks.once("ready", () => {

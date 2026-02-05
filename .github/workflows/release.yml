@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SemVer without leading v (e.g. 0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update module.json for release
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "${{ inputs.version }}".Trim()
+          if ($version -notmatch '^\d+\.\d+\.\d+([\-+].+)?$') {
+            throw "Invalid version '$version'. Expected SemVer like 0.1.0"
+          }
+
+          $repo = "${{ github.repository }}"
+          $moduleId = "allow-player-create-tile"
+          $asset = "$moduleId-v$version.zip"
+
+          $modulePath = Join-Path $PWD "module.json"
+          $module = Get-Content $modulePath -Raw | ConvertFrom-Json
+          $module.version = $version
+          $module.url = "https://github.com/$repo"
+          $module.manifest = "https://raw.githubusercontent.com/$repo/main/module.json"
+          $module.download = "https://github.com/$repo/releases/download/v$version/$asset"
+
+          ($module | ConvertTo-Json -Depth 100) + "`n" | Set-Content -NoNewline -Encoding UTF8 $modulePath
+
+          git diff --exit-code | Out-Null
+
+      - name: Commit and tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add module.json
+          git commit -m "Release v${VERSION}" || true
+          git tag -f "v${VERSION}"
+          git push origin HEAD:main
+          git push -f origin "v${VERSION}"
+
+      - name: Build zip asset
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "${{ inputs.version }}".Trim()
+          $moduleId = "allow-player-create-tile"
+          $asset = "$moduleId-v$version.zip"
+
+          $distRoot = Join-Path $PWD "dist"
+          if (Test-Path $distRoot) { Remove-Item $distRoot -Recurse -Force }
+          New-Item -ItemType Directory -Path $distRoot | Out-Null
+
+          $stage = Join-Path $distRoot $moduleId
+          New-Item -ItemType Directory -Path $stage | Out-Null
+
+          Copy-Item -Force (Join-Path $PWD "module.json") $stage
+          if (Test-Path (Join-Path $PWD "README.md")) { Copy-Item -Force (Join-Path $PWD "README.md") $stage }
+          if (Test-Path (Join-Path $PWD "LICENSE")) { Copy-Item -Force (Join-Path $PWD "LICENSE") $stage }
+          Copy-Item -Recurse -Force (Join-Path $PWD "scripts") $stage
+          Copy-Item -Recurse -Force (Join-Path $PWD "lang") $stage
+
+          Compress-Archive -Path $stage -DestinationPath (Join-Path $distRoot $asset) -Force
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: v${{ inputs.version }}
+          generate_release_notes: true
+          files: dist/*.zip
+

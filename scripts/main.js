@@ -266,12 +266,52 @@ function patchSceneControlsVisibility() {
   Hooks.on("getSceneControlButtons", (controls) => {
     if (!settingEnabled() || game.user.isGM) return;
 
-    const tiles = controls.find((c) => c.name === "tiles" || c.layer === "tiles");
-    if (!tiles) return;
+    let tiles = controls.find((c) => c.name === "tiles" || c.layer === "tiles");
+
+    if (!tiles) {
+      tiles = {
+        name: "tiles",
+        title: "CONTROLS.TileLayer",
+        icon: "fas fa-cubes",
+        layer: "tiles",
+        visible: true,
+        restricted: false,
+        gmOnly: false,
+        permission: true,
+        tools: [
+          {
+            name: "select",
+            title: "CONTROLS.CommonSelect",
+            icon: "fas fa-expand",
+            toggle: true,
+            active: true,
+            visible: true,
+            restricted: false,
+            gmOnly: false,
+          },
+          {
+            name: "tile",
+            title: "CONTROLS.TileDraw",
+            icon: "fas fa-cube",
+            toggle: true,
+            visible: true,
+            restricted: false,
+            gmOnly: false,
+          }
+        ],
+      };
+
+      controls.push(tiles);
+    }
 
     tiles.visible = true;
+    tiles.restricted = false;
+    tiles.gmOnly = false;
+    tiles.permission = true;
     for (const tool of tiles.tools ?? []) {
       tool.visible = true;
+      tool.restricted = false;
+      tool.gmOnly = false;
     }
   });
 }

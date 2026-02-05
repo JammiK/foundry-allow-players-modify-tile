@@ -40,12 +40,10 @@ jobs:
           $module = Get-Content $modulePath -Raw | ConvertFrom-Json
           $module.version = $version
           $module.url = "https://github.com/$repo"
-          $module.manifest = "https://raw.githubusercontent.com/$repo/main/module.json"
+          $module.manifest = "https://github.com/$repo/releases/latest/download/module.json"
           $module.download = "https://github.com/$repo/releases/download/v$version/$asset"
 
           ($module | ConvertTo-Json -Depth 100) + "`n" | Set-Content -NoNewline -Encoding UTF8 $modulePath
-
-          git diff --exit-code | Out-Null
 
       - name: Commit and tag
         shell: bash
@@ -72,6 +70,8 @@ jobs:
           if (Test-Path $distRoot) { Remove-Item $distRoot -Recurse -Force }
           New-Item -ItemType Directory -Path $distRoot | Out-Null
 
+          Copy-Item -Force (Join-Path $PWD "module.json") (Join-Path $distRoot "module.json")
+
           $stage = Join-Path $distRoot $moduleId
           New-Item -ItemType Directory -Path $stage | Out-Null
 
@@ -89,5 +89,6 @@ jobs:
           tag_name: v${{ inputs.version }}
           name: v${{ inputs.version }}
           generate_release_notes: true
-          files: dist/*.zip
-
+          files: |
+            dist/*.zip
+            dist/module.json

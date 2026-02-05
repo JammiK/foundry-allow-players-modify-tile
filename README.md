@@ -27,6 +27,9 @@ This repo includes a GitHub Actions workflow that can create a release + zip aut
    - Build `allow-player-create-tile-vX.Y.Z.zip`
    - Create a GitHub Release and attach the zip
 
+Manifest URL for Foundry install/update checks:
+- `https://github.com/JammiK/foundry-allow-players-modify-tile/releases/latest/download/module.json`
+
 ## По-русски (кратко)
 
 1. Скопируйте папку модуля в `Data/modules/allow-player-create-tile`.
@@ -42,3 +45,6 @@ This repo includes a GitHub Actions workflow that can create a release + zip aut
 2. Открой **Actions → Release → Run workflow**.
 3. Введи версию `0.1.0` (без `v`).
 4. Workflow сам обновит `module.json`, создаст тег `v0.1.0`, соберёт zip и создаст Release с ассетом.
+
+Ссылка на манифест (удобно вставлять в Foundry при установке):
+- `https://github.com/JammiK/foundry-allow-players-modify-tile/releases/latest/download/module.json`

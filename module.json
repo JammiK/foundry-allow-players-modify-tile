@@ -10,7 +10,7 @@
     }
   ],
   "url": "https://github.com/JammiK/foundry-allow-players-modify-tile",
-  "manifest": "https://raw.githubusercontent.com/JammiK/foundry-allow-players-modify-tile/main/module.json",
+  "manifest": "https://github.com/JammiK/foundry-allow-players-modify-tile/releases/latest/download/module.json",
   "download": "https://github.com/JammiK/foundry-allow-players-modify-tile/releases/download/v0.1.0/allow-player-create-tile-v0.1.0.zip",
   "esmodules": [
     "scripts/main.js"

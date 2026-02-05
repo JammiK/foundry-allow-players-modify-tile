@@ -22,10 +22,10 @@ This repo includes a GitHub Actions workflow that can create a release + zip aut
 2. Go to **Actions → Release → Run workflow**.
 3. Enter a version like `0.1.0` (without the leading `v`).
 4. The workflow will:
-   - Update `module.json` (`version`, `url`, `manifest`, `download`)
-   - Create and push tag `vX.Y.Z`
+   - Create and push tag `vX.Y.Z` (no commits to `main`)
    - Build `allow-player-create-tile-vX.Y.Z.zip`
    - Create a GitHub Release and attach the zip
+   - Attach a release-specific `module.json` (manifest asset)
 
 Manifest URL for Foundry install/update checks:
 - `https://github.com/JammiK/foundry-allow-players-modify-tile/releases/latest/download/module.json`
@@ -44,7 +44,7 @@ Manifest URL for Foundry install/update checks:
 1. Залей изменения в `main`.
 2. Открой **Actions → Release → Run workflow**.
 3. Введи версию `0.1.0` (без `v`).
-4. Workflow сам обновит `module.json`, создаст тег `v0.1.0`, соберёт zip и создаст Release с ассетом.
+4. Workflow создаст тег `v0.1.0` (без коммитов в `main`), соберёт zip и создаст Release с ассетами (zip + `module.json`).
 
 Ссылка на манифест (удобно вставлять в Foundry при установке):
 - `https://github.com/JammiK/foundry-allow-players-modify-tile/releases/latest/download/module.json`

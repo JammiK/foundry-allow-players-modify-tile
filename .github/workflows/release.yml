@@ -23,7 +23,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Update module.json for release
+      - name: Build release assets (zip + module.json)
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -36,52 +36,43 @@ jobs:
           $moduleId = "allow-player-create-tile"
           $asset = "$moduleId-v$version.zip"
 
-          $modulePath = Join-Path $PWD "module.json"
-          $module = Get-Content $modulePath -Raw | ConvertFrom-Json
-          $module.version = $version
-          $module.url = "https://github.com/$repo"
-          $module.manifest = "https://github.com/$repo/releases/latest/download/module.json"
-          $module.download = "https://github.com/$repo/releases/download/v$version/$asset"
-
-          ($module | ConvertTo-Json -Depth 100) + "`n" | Set-Content -NoNewline -Encoding UTF8 $modulePath
-
-      - name: Commit and tag
-        shell: bash
-        run: |
-          set -euo pipefail
-          VERSION="${{ inputs.version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add module.json
-          git commit -m "Release v${VERSION}" || true
-          git tag -f "v${VERSION}"
-          git push origin HEAD:main
-          git push -f origin "v${VERSION}"
-
-      - name: Build zip asset
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $version = "${{ inputs.version }}".Trim()
-          $moduleId = "allow-player-create-tile"
-          $asset = "$moduleId-v$version.zip"
-
           $distRoot = Join-Path $PWD "dist"
           if (Test-Path $distRoot) { Remove-Item $distRoot -Recurse -Force }
           New-Item -ItemType Directory -Path $distRoot | Out-Null
 
-          Copy-Item -Force (Join-Path $PWD "module.json") (Join-Path $distRoot "module.json")
+          # Build a release-specific manifest as a Release asset (do not commit to main).
+          $sourceManifestPath = Join-Path $PWD "module.json"
+          $manifest = Get-Content $sourceManifestPath -Raw | ConvertFrom-Json
+          $manifest.version = $version
+          $manifest.url = "https://github.com/$repo"
+          $manifest.manifest = "https://github.com/$repo/releases/latest/download/module.json"
+          $manifest.download = "https://github.com/$repo/releases/download/v$version/$asset"
 
+          ($manifest | ConvertTo-Json -Depth 100) + "`n" | Set-Content -NoNewline -Encoding UTF8 (Join-Path $distRoot "module.json")
+
+          # Stage module folder and zip it with the correct root folder name.
           $stage = Join-Path $distRoot $moduleId
           New-Item -ItemType Directory -Path $stage | Out-Null
 
-          Copy-Item -Force (Join-Path $PWD "module.json") $stage
+          Copy-Item -Force (Join-Path $distRoot "module.json") (Join-Path $stage "module.json")
           if (Test-Path (Join-Path $PWD "README.md")) { Copy-Item -Force (Join-Path $PWD "README.md") $stage }
           if (Test-Path (Join-Path $PWD "LICENSE")) { Copy-Item -Force (Join-Path $PWD "LICENSE") $stage }
           Copy-Item -Recurse -Force (Join-Path $PWD "scripts") $stage
           Copy-Item -Recurse -Force (Join-Path $PWD "lang") $stage
 
           Compress-Archive -Path $stage -DestinationPath (Join-Path $distRoot $asset) -Force
+
+      - name: Tag release
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.version }}"
+          if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists. Refusing to overwrite."
+            exit 1
+          fi
+          git tag -a "v${VERSION}" -m "Release v${VERSION}"
+          git push origin "v${VERSION}"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

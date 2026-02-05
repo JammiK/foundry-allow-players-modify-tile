@@ -169,7 +169,11 @@ function patchTileDocumentPermissions() {
 }
 
 function patchTileLayerCapabilities() {
-  const TileLayerClass = globalThis.TileLayer;
+  const TileLayerClass =
+    globalThis.TilesLayer ??
+    globalThis.TileLayer ??
+    CONFIG?.Canvas?.layers?.tiles?.layerClass ??
+    canvas?.tiles?.constructor;
   if (!TileLayerClass?.prototype) return;
 
   const allow = () => settingEnabled() && !game.user.isGM;
@@ -211,6 +215,25 @@ function patchTileLayerCapabilities() {
       return original.call(this, ...args) || allow();
     };
   });
+}
+
+function applyTileLayerOptions() {
+  if (!settingEnabled() || game.user.isGM) return;
+  const layer = canvas?.tiles;
+  if (!layer?.options) return;
+
+  layer.options.canDragCreate = true;
+  layer.options.canCreate = true;
+  layer.options.canControl = true;
+}
+
+function refreshSceneControls() {
+  try {
+    ui.controls?.initialize?.();
+    ui.controls?.render?.(true);
+  } catch (_) {
+    // ignore
+  }
 }
 
 function patchSceneEmbeddedTileOperations() {
@@ -263,6 +286,28 @@ function patchSceneEmbeddedTileOperations() {
 }
 
 function patchSceneControlsVisibility() {
+  const defaultTools = () => ([
+    {
+      name: "select",
+      title: "CONTROLS.CommonSelect",
+      icon: "fas fa-expand",
+      toggle: true,
+      active: true,
+      visible: true,
+      restricted: false,
+      gmOnly: false,
+    },
+    {
+      name: "tile",
+      title: "CONTROLS.TileDraw",
+      icon: "fas fa-cube",
+      toggle: true,
+      visible: true,
+      restricted: false,
+      gmOnly: false,
+    },
+  ]);
+
   Hooks.on("getSceneControlButtons", (controls) => {
     if (!settingEnabled() || game.user.isGM) return;
 
@@ -278,30 +323,14 @@ function patchSceneControlsVisibility() {
         restricted: false,
         gmOnly: false,
         permission: true,
-        tools: [
-          {
-            name: "select",
-            title: "CONTROLS.CommonSelect",
-            icon: "fas fa-expand",
-            toggle: true,
-            active: true,
-            visible: true,
-            restricted: false,
-            gmOnly: false,
-          },
-          {
-            name: "tile",
-            title: "CONTROLS.TileDraw",
-            icon: "fas fa-cube",
-            toggle: true,
-            visible: true,
-            restricted: false,
-            gmOnly: false,
-          }
-        ],
+        tools: defaultTools(),
       };
 
       controls.push(tiles);
+    }
+
+    if (!Array.isArray(tiles.tools) || tiles.tools.length === 0) {
+      tiles.tools = defaultTools();
     }
 
     tiles.visible = true;
@@ -325,6 +354,10 @@ Hooks.once("init", () => {
     type: Boolean,
     default: false,
     requiresReload: false,
+    onChange: () => {
+      applyTileLayerOptions();
+      refreshSceneControls();
+    },
   });
 
   patchTileDocumentPermissions();
@@ -335,6 +368,14 @@ Hooks.once("init", () => {
 
 Hooks.once("ready", () => {
   patchTileLayerCapabilities();
+  applyTileLayerOptions();
+  refreshSceneControls();
+
+  Hooks.on("canvasReady", () => {
+    applyTileLayerOptions();
+    refreshSceneControls();
+  });
+
   game.socket.on(SOCKET_EVENT, async (message) => {
     if (!message || typeof message !== "object") return;
 

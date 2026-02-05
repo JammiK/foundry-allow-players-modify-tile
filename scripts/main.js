@@ -6,7 +6,7 @@ const RPC_TIMEOUT_MS = 10_000;
 const pendingRpcs = new Map();
 
 function settingEnabled() {
-  return game.settings.get(MODULE_ID, "enablePlayerTileEditing") === true;
+  return Boolean(game.settings.get(MODULE_ID, "enablePlayerTileEditing"));
 }
 
 function isActiveCanvasScene(scene) {
@@ -294,8 +294,6 @@ function patchSceneControlsVisibility() {
       toggle: true,
       active: true,
       visible: true,
-      restricted: false,
-      gmOnly: false,
     },
     {
       name: "tile",
@@ -303,8 +301,6 @@ function patchSceneControlsVisibility() {
       icon: "fas fa-cube",
       toggle: true,
       visible: true,
-      restricted: false,
-      gmOnly: false,
     },
   ]);
 
@@ -320,10 +316,8 @@ function patchSceneControlsVisibility() {
         icon: "fas fa-cubes",
         layer: "tiles",
         visible: true,
-        restricted: false,
-        gmOnly: false,
-        permission: true,
         tools: defaultTools(),
+        activeTool: "select",
       };
 
       controls.push(tiles);
@@ -334,13 +328,15 @@ function patchSceneControlsVisibility() {
     }
 
     tiles.visible = true;
-    tiles.restricted = false;
-    tiles.gmOnly = false;
-    tiles.permission = true;
+    tiles.activeTool = tiles.activeTool ?? "select";
+    if ("permission" in tiles) delete tiles.permission;
+    if ("restricted" in tiles) delete tiles.restricted;
+    if ("gmOnly" in tiles) delete tiles.gmOnly;
     for (const tool of tiles.tools ?? []) {
       tool.visible = true;
-      tool.restricted = false;
-      tool.gmOnly = false;
+      if ("permission" in tool) delete tool.permission;
+      if ("restricted" in tool) delete tool.restricted;
+      if ("gmOnly" in tool) delete tool.gmOnly;
     }
   });
 }

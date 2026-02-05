@@ -67,6 +67,8 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ inputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
             echo "Tag v${VERSION} already exists. Refusing to overwrite."
             exit 1

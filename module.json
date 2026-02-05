@@ -1,0 +1,34 @@
+{
+  "id": "allow-player-create-tile",
+  "type": "module",
+  "title": "Allow Players to Create/Edit Tiles",
+  "description": "Foundry VTT v13 module that lets non-GM users create, edit, move, and delete Tiles on the active Scene (configurable by the GM).",
+  "version": "0.1.0",
+  "authors": [
+    {
+      "name": "Your Name"
+    }
+  ],
+  "url": "",
+  "manifest": "",
+  "download": "",
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/ru.json"
+    }
+  ],
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13"
+  }
+}

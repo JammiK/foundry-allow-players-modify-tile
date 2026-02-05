@@ -1,0 +1,14 @@
+{
+  "allow-player-create-tile": {
+    "settings": {
+      "enable": {
+        "name": "Разрешить игрокам создавать/редактировать Tile",
+        "hint": "Если включено, не-ГМ пользователи могут создавать, перемещать, редактировать и удалять Tile на текущей активной сцене."
+      }
+    },
+    "notifications": {
+      "enabledGM": "Allow Players to Create/Edit Tiles: включено для этого мира."
+    }
+  }
+}
+

@@ -1,0 +1,14 @@
+{
+  "allow-player-create-tile": {
+    "settings": {
+      "enable": {
+        "name": "Allow players to create/edit Tiles",
+        "hint": "When enabled, non-GM users can create, move, edit, and delete Tiles on the currently active Scene."
+      }
+    },
+    "notifications": {
+      "enabledGM": "Allow Players to Create/Edit Tiles: enabled for this world."
+    }
+  }
+}
+
